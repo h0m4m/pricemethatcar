@@ -26,18 +26,18 @@ DOMAIN_RULES = {
         "price_selector": "div.rounded-xl h3.font-semibold",
         "price_cleaning": lambda x: ''.join(filter(str.isdigit, x))
     },
-    "octane.rent": {
-        "url_prefixes": [
-            "/suv-cars/",
-            "/sports-cars/",
-            "/luxury-cars/",
-            "/cars/",
-            "/convertible-cars/",
-            "/sedan/"
-        ],
-    "price_selector": "div[data-id='car_price-1'] span.wpcs_price",
-    "price_cleaning": lambda x: x.strip().replace(',', '')
-    },
+    # "octane.rent": {
+    #     "url_prefixes": [
+    #         "/suv-cars/",
+    #         "/sports-cars/",
+    #         "/luxury-cars/",
+    #         "/cars/",
+    #         "/convertible-cars/",
+    #         "/sedan/"
+    #     ],
+    # "price_selector": "div[data-id='car_price-1'] span.wpcs_price",
+    # "price_cleaning": lambda x: x.strip().replace(',', '')
+    # },
     "www.uptowndxb.com": {
         "url_prefixes": [
             "/Rental/sport-cars/",
