@@ -54,6 +54,8 @@ def fetch_url_with_retry(url, max_retries=3, timeout=20):
             # Use a longer timeout for problematic domains
             if "uptowndxb.com" in url:
                 timeout = 30  # 30 seconds for Uptown Dubai
+            if "ferrorental.com" in url:
+                timeout = 40
                 
             resp = requests.get(url, timeout=timeout)
             if resp.status_code == 200:
@@ -74,7 +76,7 @@ def scrape_car_page(domain_rule, domain, url, car_queries):
             return []
 
         soup = BeautifulSoup(resp.text, 'html.parser')
-        url_path = urlparse(url).path.lower()
+        url_path = urlparse(url).path
 
         for query in car_queries:
             make = query.get('make', '').strip()
@@ -104,11 +106,14 @@ def scrape_car_page(domain_rule, domain, url, car_queries):
         return []
 
 def should_process_url(url, prefixes):
-    """Check if URL matches our car page pattern"""
-    path = urlparse(url).path.lower()
-    # Check if URL path contains at least 2 segments (e.g., /product/car-name/)
+    path = urlparse(url).path
     segments = [s for s in path.split('/') if s]
-    return len(segments) >= 2 and any(path.startswith(prefix) for prefix in prefixes)
+    
+    for prefix in prefixes:
+        if path.startswith(prefix):
+            if prefix == "/" or len(segments) >= 2:
+                return True
+    return False
 
 def crawl_domain(domain, car_queries, max_depth=3, max_workers=50):
     parsed = urlparse(domain)
@@ -169,6 +174,8 @@ def crawl_domain(domain, car_queries, max_depth=3, max_workers=50):
 
                         norm_url = full_url.split("#")[0]
                         if norm_url not in visited and norm_url not in to_visit:
+                            if domain_host == "ferrorental.com" and urlparse(norm_url).path.startswith("/ru/"):
+                                continue
                             if should_process_url(norm_url, prefixes):
                                 discovered_car_pages.add(norm_url)
                             else:

@@ -5,18 +5,18 @@ app = Flask(__name__)
 
 # Supported domains
 SUPPORTED_DOMAINS = [
-    # "https://www.rotanastar.ae/",
+    "https://www.rotanastar.ae/",
     "https://phantomrentcar.com/",
-    # "https://mkrentacar.com/",
-    # "https://superiorrental.ae/",
-    # "https://octane.rent/",
-    # "https://www.uptowndxb.com/",
-    # "https://www.bevip.ae/",
-    # "https://xcarrental.com/",
-    # "https://ferrorental.com/",
-    # "https://mtn-rentacar.com/",
-    # "https://www.selyarentacar.com/",
-    # "https://firstsupercarrental.com/"
+    "https://mkrentacar.com/",
+    "https://superiorrental.ae/",
+    "https://octane.rent/",
+    "https://www.uptowndxb.com/",
+    "https://www.bevip.ae/",
+    "https://xcarrental.com/",
+    "https://ferrorental.com/",
+    "https://mtn-rentacar.com/",
+    "https://www.selyarentacar.com/",
+    "https://firstsupercarrental.com/"
 ]
 
 @app.route('/scrape', methods=['POST'])
