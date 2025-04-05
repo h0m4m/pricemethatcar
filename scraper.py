@@ -103,7 +103,14 @@ def scrape_car_page(domain_rule, domain, url, car_queries):
         print(f"[ERROR] scrape_car_page: {e} @ {url}")
         return []
 
-def crawl_domain(domain, car_queries, max_depth=3, max_workers=15):
+def should_process_url(url, prefixes):
+    """Check if URL matches our car page pattern"""
+    path = urlparse(url).path.lower()
+    # Check if URL path contains at least 2 segments (e.g., /product/car-name/)
+    segments = [s for s in path.split('/') if s]
+    return len(segments) >= 2 and any(path.startswith(prefix) for prefix in prefixes)
+
+def crawl_domain(domain, car_queries, max_depth=3, max_workers=50):
     parsed = urlparse(domain)
     domain_host = parsed.netloc
     base_url = f"{parsed.scheme}://{parsed.netloc}"
@@ -115,53 +122,24 @@ def crawl_domain(domain, car_queries, max_depth=3, max_workers=15):
     rule = DOMAIN_RULES[domain_host]
     prefixes = rule.get("url_prefixes", [])
     found = []
-    found_with_prices = False
-
-    # First try direct URL construction for each car
-    for query in car_queries:
-        make = query.get('make', '').strip()
-        model = query.get('model', '').strip()
-        
-        if not make or not model:
-            continue
-            
-        possible_urls = construct_car_urls(base_url, prefixes, make, model)
-        print(f"[TRY] Attempting direct URLs for {make} {model}: {possible_urls}")
-        
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {
-                executor.submit(scrape_car_page, rule, domain, url, [query]): url
-                for url in possible_urls
-            }
-            for future in as_completed(futures):
-                try:
-                    result = future.result()
-                    found.extend(result)
-                    # Check if we found any results with actual prices
-                    if result and any(price != "N/A" for r in result for price in r['prices']):
-                        found_with_prices = True
-                except Exception as e:
-                    print(f"[ERROR] scraping car page: {e}")
-
-    # If we found results with actual prices through direct URLs, return them
-    if found_with_prices:
-        results_by_domain = {domain: found}
-        print(f"[DONE] Found results with prices through direct URLs for {domain}")
-        return results_by_domain
-
-    # If no results found with prices through direct URLs, fall back to crawling
-    print(f"[FALLBACK] No prices found through direct URLs, falling back to crawling {domain}")
     visited = set()
-    to_visit = [domain]
+    to_visit = set()
     discovered_car_pages = set()
     depth = 0
 
+    # Start with the domain root to find car pages
+    to_visit.add(base_url)
+
+    # Process URLs in batches for better memory management
+    batch_size = 1000
     while to_visit and depth < max_depth:
-        print(f"[DEPTH {depth}] Crawling {len(to_visit)} pages...")
+        print(f"[DEPTH {depth}] Processing {len(to_visit)} URLs...")
+        current_batch = list(to_visit)[:batch_size]
+        to_visit = set(list(to_visit)[batch_size:])
         next_to_visit = set()
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {executor.submit(fetch_url_with_retry, url): url for url in to_visit}
+            futures = {executor.submit(fetch_url_with_retry, url): url for url in current_batch}
             for future in as_completed(futures):
                 url = futures[future]
                 visited.add(url)
@@ -176,9 +154,9 @@ def crawl_domain(domain, car_queries, max_depth=3, max_workers=15):
 
                     soup = BeautifulSoup(resp.text, 'html.parser')
                     
-                    # Look for car links
-                    all_links = soup.find_all('a', href=True)
-                    for link in all_links:
+                    # Process all links in one pass
+                    new_urls = set()
+                    for link in soup.find_all('a', href=True):
                         href = link['href'].strip()
                         if href.startswith(("javascript:", "#")):
                             continue
@@ -190,32 +168,38 @@ def crawl_domain(domain, car_queries, max_depth=3, max_workers=15):
                             continue
 
                         norm_url = full_url.split("#")[0]
-                        if norm_url not in visited:
-                            path = full_url_parsed.path
-                            if any(path.startswith(prefix) for prefix in prefixes):
+                        if norm_url not in visited and norm_url not in to_visit:
+                            if should_process_url(norm_url, prefixes):
                                 discovered_car_pages.add(norm_url)
-                            next_to_visit.add(norm_url)
+                            else:
+                                new_urls.add(norm_url)
+
+                    next_to_visit.update(new_urls)
 
                 except Exception as e:
                     print(f"[ERROR] Failed crawling {url}: {e}")
 
-        to_visit = list(next_to_visit - visited)
+        to_visit.update(next_to_visit)
         depth += 1
 
-    # Scrape discovered car pages
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(scrape_car_page, rule, domain, url, car_queries): url
-            for url in discovered_car_pages
-        }
-        for future in as_completed(futures):
-            try:
-                result = future.result()
-                found.extend(result)
-            except Exception as e:
-                print(f"[ERROR] scraping car page: {e}")
+    # Process discovered car pages in parallel batches
+    print(f"[SCRAPE] Processing {len(discovered_car_pages)} discovered car pages...")
+    car_pages_list = list(discovered_car_pages)
+    for i in range(0, len(car_pages_list), batch_size):
+        batch = car_pages_list[i:i + batch_size]
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(scrape_car_page, rule, domain, url, car_queries): url
+                for url in batch
+            }
+            for future in as_completed(futures):
+                try:
+                    result = future.result()
+                    found.extend(result)
+                except Exception as e:
+                    print(f"[ERROR] scraping car page: {e}")
 
     # Group results by domain
     results_by_domain = {domain: found} if found else {}
-    print(f"[DONE] Found results for {domain}")
+    print(f"[DONE] Found {len(found)} results for {domain}")
     return results_by_domain
