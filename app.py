@@ -1,8 +1,10 @@
-# app.py
 from flask import Flask, request, jsonify, render_template
 import asyncio
+import nest_asyncio
 
-from scraper import crawl_domain  # Now it's async
+from scraper import crawl_domain
+
+nest_asyncio.apply()
 # Supported domains remain the same
 SUPPORTED_DOMAINS = [
     "https://www.rotanastar.ae/",
@@ -39,21 +41,17 @@ def scrape():
     if not isinstance(car_queries, list):
         return jsonify({"error": "'cars' must be a list"}), 400
 
-    # Validate car queries
     for query in car_queries:
-        if not isinstance(query, dict):
-            return jsonify({"error": "Each car query must be an object"}), 400
-        if 'make' not in query or 'model' not in query:
+        if not isinstance(query, dict) or 'make' not in query or 'model' not in query:
             return jsonify({"error": "Each car query must have 'make' and 'model' fields"}), 400
 
     print(f"[REQUEST] Received request to scrape for cars: {car_queries}")
     all_results = {}
 
-    # For each domain, call our new async function, using asyncio.run(...)
+    loop = asyncio.get_event_loop()
     for domain in SUPPORTED_DOMAINS:
         print(f"[CRAWL] Starting crawl for domain: {domain}")
-        # Run the async crawl
-        result = asyncio.run(crawl_domain(domain, car_queries))
+        result = loop.run_until_complete(crawl_domain(domain, car_queries))
         all_results.update(result)
 
     print(f"[DONE] Scraping complete. Found results for {len(all_results)} domains.")
