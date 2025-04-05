@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Car Scraper Frontend</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- ✅ Google Fonts: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- ✅ Google Material Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&display=swap" rel="stylesheet">
+  <!-- Your stylesheet -->
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+    <h1 class="title">Price Me That Car!</h1>
+  
+    <!-- Wait Message -->
+    <div id="waitMessage" class="wait-message" style="display: none;">
+      <p>Please wait, this may take a while.</p>
+      <p>Do not restart or close the page while pricing.</p>
+    </div>
+  
+    <!-- Add Car Form -->
+    <div class="add-car-form" id="formSection">
+      <input id="makeInput" type="text" placeholder="Make (e.g. BMW)" aria-label="Car Make" />
+      <input id="modelInput" type="text" placeholder="Model (e.g. X5)" aria-label="Car Model" />
+      <button id="addCarBtn" title="Add Car">
+        <span class="material-icons">add</span>
+        Add Car
+      </button>
+    </div>
+  
+    <!-- Price Button -->
+    <div class="controls" id="controlSection">
+      <button id="priceBtn" title="Check Prices">
+        <span class="material-icons">attach_money</span>
+        Price
+      </button>
+    </div>
+  
+    <!-- Car Cards List -->
+    <div id="carContainer" class="car-list"></div>
+  
+    <!-- Results Section -->
+    <div id="resultsSection" style="display: none;" class="results-list"></div>
+  
+    <!-- Script -->
+    <script src="/static/script.js"></script>
+  </body>
+  </html>
