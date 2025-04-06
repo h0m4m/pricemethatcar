@@ -1,8 +1,6 @@
-# tasks.py
-import asyncio
-# tasks.py
 from celery_app import celery
 from scraper import crawl_domain
+import asyncio
 
 SUPPORTED_DOMAINS = [
     "https://www.rotanastar.ae/",
@@ -18,13 +16,16 @@ SUPPORTED_DOMAINS = [
     "https://firstsupercarrental.com/"
 ]
 
-@celery.task(bind=True)
-async def run_scrape_job(self, car_queries):
+async def scrape_all_domains(car_queries):
     tasks = [crawl_domain(domain, car_queries) for domain in SUPPORTED_DOMAINS]
     results = await asyncio.gather(*tasks, return_exceptions=True)
-# s
+
     aggregated = {}
     for result in results:
         if isinstance(result, dict):
             aggregated.update(result)
     return aggregated
+
+@celery.task(bind=True)
+def run_scrape_job(self, car_queries):
+    return asyncio.run(scrape_all_domains(car_queries))
