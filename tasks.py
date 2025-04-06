@@ -22,7 +22,7 @@ SUPPORTED_DOMAINS = [
 async def run_scrape_job(self, car_queries):
     tasks = [crawl_domain(domain, car_queries) for domain in SUPPORTED_DOMAINS]
     results = await asyncio.gather(*tasks, return_exceptions=True)
-
+# s
     aggregated = {}
     for result in results:
         if isinstance(result, dict):
