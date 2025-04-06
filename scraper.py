@@ -99,19 +99,7 @@ def should_process_url(url, prefixes):
     return False
 
 
-async def fetch_url_with_retry(
-    session, url, max_retries=3, base_timeout=20
-):
-    """
-    Perform an asynchronous GET request with built-in retries.
-
-    :param session: aiohttp.ClientSession object.
-    :param url: URL to fetch.
-    :param max_retries: Number of retry attempts for network failures or non-200 responses.
-    :param base_timeout: Base timeout for the request; adjusted for known slow domains.
-    :return: The HTML text if successful, None otherwise.
-    :complexity: O(r) where r = max_retries, each attempt is an async HTTP request.
-    """
+async def fetch_url_with_retry(session, url, max_retries=3, base_timeout=20):
     for attempt in range(max_retries):
         try:
             timeout_val = base_timeout
@@ -120,7 +108,7 @@ async def fetch_url_with_retry(
             if "ferrorental.com" in url:
                 timeout_val = 40
 
-            async with session.get(url, timeout=aiohttp.ClientTimeout(...)) as resp:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=timeout_val)) as resp:
                 if resp.status == 200:
                     content_type = resp.headers.get("Content-Type", "")
                     if "text/html" not in content_type:
@@ -133,7 +121,6 @@ async def fetch_url_with_retry(
         except Exception as e:
             print(f"[WARN] Attempt {attempt+1} failed for {url}: {e}")
 
-        # Short delay before retrying
         await asyncio.sleep(1)
 
     print(f"[ERROR] All {max_retries} attempts failed for {url}")
