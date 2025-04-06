@@ -1,5 +1,6 @@
 # tasks.py
 import asyncio
+# tasks.py
 from celery_app import celery
 from scraper import crawl_domain
 
@@ -18,14 +19,12 @@ SUPPORTED_DOMAINS = [
 ]
 
 @celery.task(bind=True)
-def run_scrape_job(self, car_queries):
-    async def scrape_all():
-        tasks = [crawl_domain(domain, car_queries) for domain in SUPPORTED_DOMAINS]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        aggregated = {}
-        for result in results:
-            if isinstance(result, dict):
-                aggregated.update(result)
-        return aggregated
+async def run_scrape_job(self, car_queries):
+    tasks = [crawl_domain(domain, car_queries) for domain in SUPPORTED_DOMAINS]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    return asyncio.run(scrape_all())
+    aggregated = {}
+    for result in results:
+        if isinstance(result, dict):
+            aggregated.update(result)
+    return aggregated
