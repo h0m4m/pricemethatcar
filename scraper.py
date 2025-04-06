@@ -120,10 +120,12 @@ async def fetch_url_with_retry(
             if "ferrorental.com" in url:
                 timeout_val = 40
 
-            async with session.get(
-                url, timeout=aiohttp.ClientTimeout(total=timeout_val)
-            ) as resp:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(...)) as resp:
                 if resp.status == 200:
+                    content_type = resp.headers.get("Content-Type", "")
+                    if "text/html" not in content_type:
+                        print(f"[SKIP] Non-HTML content: {url} ({content_type})")
+                        return None
                     return await resp.text()
 
                 print(f"[WARN] Attempt {attempt+1}: Status code {resp.status} for {url}")
