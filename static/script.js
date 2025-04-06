@@ -119,21 +119,52 @@ async function fetchPrices() {
   document.getElementById("carContainer").style.display = "none";
 
   try {
-    const response = await fetch("/scrape", {
+    const res = await fetch("/scrape", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
 
-    if (!response.ok) throw new Error(`Status: ${response.status}`);
+    if (!res.ok) throw new Error("Failed to start scraping");
 
-    const data = await response.json();
-    renderResults(data);
+    const { job_id } = await res.json();
+    pollJobStatus(job_id);
   } catch (error) {
-    console.error("[ERROR] Fetching prices failed:", error);
-    alert("Failed to fetch prices. Please try again.");
+    console.error("[ERROR] Failed to start scrape:", error);
+    alert("Failed to start scrape. Try again.");
     resetView();
   }
+}
+
+async function pollJobStatus(jobId) {
+  let tries = 0;
+  const maxTries = 60;
+
+  const poll = async () => {
+    try {
+      const res = await fetch(`/scrape-status/${jobId}`);
+      const { status, result } = await res.json();
+
+      if (status === "done") {
+        renderResults(result);
+      } else if (status === "error") {
+        alert("Scrape failed.");
+        resetView();
+      } else {
+        if (++tries >= maxTries) {
+          alert("Scraping timed out.");
+          resetView();
+          return;
+        }
+        setTimeout(poll, 5000);
+      }
+    } catch (e) {
+      console.error("[ERROR] Polling failed:", e);
+      resetView();
+    }
+  };
+
+  poll();
 }
 
 function renderResults(results) {

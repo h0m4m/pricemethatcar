@@ -1,11 +1,13 @@
 from flask import Flask, request, jsonify, render_template
+import uuid
 import asyncio
 import nest_asyncio
+import threading
 
 from scraper import crawl_domain
 
 nest_asyncio.apply()
-# Supported domains remain the same
+
 SUPPORTED_DOMAINS = [
     "https://www.rotanastar.ae/",
     "https://phantomrentcar.com/",
@@ -22,75 +24,53 @@ SUPPORTED_DOMAINS = [
 ]
 
 app = Flask(__name__)
+TASKS = {}  # job_id -> {"status": "pending"|"done"|"error", "result": dict}
 
 @app.route('/')
 def index():
-    """
-    Serve the frontend UI at the root path `/`.
-    Loads `templates/index.html`, which includes links to static JS and CSS.
-    """
     return render_template('index.html')
 
+
 @app.route('/scrape', methods=['POST'])
-def scrape():
+def create_scrape_job():
     data = request.get_json()
-    if not data or 'cars' not in data:
-        return jsonify({"error": "Missing 'cars' list"}), 400
+    car_queries = data.get('cars', [])
+    job_id = str(uuid.uuid4())
+    TASKS[job_id] = {"status": "pending", "result": None}
 
-    car_queries = data['cars']
-    if not isinstance(car_queries, list):
-        return jsonify({"error": "'cars' must be a list"}), 400
+    threading.Thread(target=lambda: asyncio.run(run_scrape_job(job_id, car_queries))).start()
 
-    for query in car_queries:
-        if not isinstance(query, dict) or 'make' not in query or 'model' not in query:
-            return jsonify({"error": "Each car query must have 'make' and 'model' fields"}), 400
+    return jsonify({"job_id": job_id}), 202
 
-    print(f"[REQUEST] Received request to scrape for cars: {car_queries}")
-    all_results = {}
 
-    loop = asyncio.get_event_loop()
-    for domain in SUPPORTED_DOMAINS:
-        print(f"[CRAWL] Starting crawl for domain: {domain}")
-        result = loop.run_until_complete(crawl_domain(domain, car_queries))
-        all_results.update(result)
+@app.route('/scrape-status/<job_id>', methods=['GET'])
+def check_scrape_status(job_id):
+    task = TASKS.get(job_id)
+    if not task:
+        return jsonify({"error": "Invalid job ID"}), 404
 
-    print(f"[DONE] Scraping complete. Found results for {len(all_results)} domains.")
-    return jsonify(all_results)
+    return jsonify({
+        "status": task["status"],
+        "result": task["result"] if task["status"] == "done" else None
+    })
 
-@app.route('/mock-scrape', methods=['POST'])
-def mock_scrape():
-    """
-    Returns mock pricing results for testing the frontend.
-    Accepts the same payload as /scrape: {"cars": [{make, model}, ...]}
-    """
 
-    data = request.get_json()
-    if not data or 'cars' not in data:
-        return jsonify({"error": "Missing 'cars' list"}), 400
+async def run_scrape_job(job_id, car_queries):
+    try:
+        async def scrape_all():
+            tasks = [crawl_domain(domain, car_queries) for domain in SUPPORTED_DOMAINS]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            merged = {}
+            for result in results:
+                if isinstance(result, dict):
+                    merged.update(result)
+            return merged
 
-    car_queries = data['cars']
-    mock_response = {}
-
-    for car in car_queries:
-        make = car.get('make', '').strip()
-        model = car.get('model', '').strip()
-        key = f"{make}-{model}".lower().replace(" ", "-")
-
-        mock_response.setdefault("rotanastar.ae", []).append({
-            "make": make,
-            "model": model,
-            "url": f"https://www.rotanastar.ae/car/{key}/",
-            "prices": ["3200", "3400", "3000"]
-        })
-
-        mock_response.setdefault("phantomrentcar.com", []).append({
-            "make": make,
-            "model": model,
-            "url": f"https://phantomrentcar.com/car/{key}/",
-            "prices": ["3100", "3150"]
-        })
-
-    return jsonify(mock_response)
+        results = await scrape_all()
+        TASKS[job_id] = {"status": "done", "result": results}
+    except Exception as e:
+        print(f"[ERROR] Scrape job failed: {e}")
+        TASKS[job_id] = {"status": "error", "result": str(e)}
 
 
 if __name__ == '__main__':
