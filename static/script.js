@@ -136,10 +136,7 @@ async function fetchPrices() {
   }
 }
 
-async function pollJobStatus(jobId) {
-  let tries = 0;
-  const maxTries = 60;
-
+function pollJobStatus(jobId) {
   const poll = async () => {
     try {
       const res = await fetch(`/scrape-status/${jobId}`);
@@ -151,19 +148,13 @@ async function pollJobStatus(jobId) {
         alert("Scrape failed.");
         resetView();
       } else {
-        if (++tries >= maxTries) {
-          alert("Scraping timed out.");
-          resetView();
-          return;
-        }
-        setTimeout(poll, 5000);
+        setTimeout(() => pollJobStatus(jobId), 2000);
       }
     } catch (e) {
       console.error("[ERROR] Polling failed:", e);
       resetView();
     }
   };
-
   poll();
 }
 
